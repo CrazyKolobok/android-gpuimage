@@ -104,7 +104,7 @@ public class GPUImageFilter {
         outputHeight = height;
     }
 
-    public void onDraw(final int textureId, final FloatBuffer cubeBuffer,
+    public void onDraw(final int frameBuffer, final int textureId, final FloatBuffer cubeBuffer,
                        final FloatBuffer textureBuffer) {
         GLES20.glUseProgram(glProgId);
         runPendingOnDrawTasks();

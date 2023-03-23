@@ -86,7 +86,7 @@ public class GPUImageTransformFilter extends GPUImageFilter {
     }
 
     @Override
-    public void onDraw(final int textureId, final FloatBuffer cubeBuffer,
+    public void onDraw(final int frameBuffer, final int textureId, final FloatBuffer cubeBuffer,
                        final FloatBuffer textureBuffer) {
 
         FloatBuffer vertBuffer = cubeBuffer;
@@ -111,7 +111,7 @@ public class GPUImageTransformFilter extends GPUImageFilter {
             vertBuffer.put(adjustedVertices).position(0);
         }
 
-        super.onDraw(textureId, vertBuffer, textureBuffer);
+        super.onDraw(frameBuffer, textureId, vertBuffer, textureBuffer);
     }
 
     public void setTransform3D(float[] transform3D) {

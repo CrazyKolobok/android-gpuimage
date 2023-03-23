@@ -36,7 +36,7 @@ public class PixelBuffer {
     private final static String TAG = "PixelBuffer";
     private final static boolean LIST_CONFIGS = false;
 
-    private GLSurfaceView.Renderer renderer; // borrow this interface
+    private GPURenderer renderer;
     private int width, height;
     private Bitmap bitmap;
 
@@ -91,8 +91,9 @@ public class PixelBuffer {
         createFrameBufferObject(width, height);
     }
 
-    public void setRenderer(final GLSurfaceView.Renderer renderer) {
+    public void setRenderer(final GPURenderer renderer) {
         this.renderer = renderer;
+        this.renderer.setFrameBuffer(getFrameBufferObject());
 
         // Does this thread own the OpenGL context?
         if (!Thread.currentThread().getName().equals(mThreadOwner)) {
@@ -215,6 +216,8 @@ public class PixelBuffer {
             Log.e(TAG, "framebuffer object initialization failed, status: " + status);
             destroyFrameBufferObject();
         }
+
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
     }
 
     private void createFrameBufferTexture(int width, int height) {
