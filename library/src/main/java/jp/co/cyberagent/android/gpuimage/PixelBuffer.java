@@ -9,7 +9,6 @@
 package jp.co.cyberagent.android.gpuimage;
 
 import android.graphics.Bitmap;
-import android.opengl.GLSurfaceView;
 import android.opengl.GLES20;
 import android.util.Log;
 
@@ -85,21 +84,22 @@ public class PixelBuffer {
 
         gl10 = (GL10) eglContext.getGL();
 
+        createFrameBufferObject();
+
         // Record thread owner of OpenGL context
         mThreadOwner = Thread.currentThread().getName();
-
-        createFrameBufferObject(width, height);
     }
 
     public void setRenderer(final GPURenderer renderer) {
         this.renderer = renderer;
-        this.renderer.setFrameBuffer(getFrameBufferObject());
 
         // Does this thread own the OpenGL context?
         if (!Thread.currentThread().getName().equals(mThreadOwner)) {
             Log.e(TAG, "setRenderer: This thread does not own the OpenGL context.");
             return;
         }
+
+        this.renderer.setFrameBuffer(getFrameBufferObject());
 
         // Call the renderer initialization routines
         this.renderer.onSurfaceCreated(gl10, eglConfig);
@@ -199,14 +199,18 @@ public class PixelBuffer {
         GPUImageNativeLibrary.adjustBitmap(bitmap);
     }
 
-    private void createFrameBufferObject(int width, int height) {
+    private void createFrameBufferObject() {
         destroyFrameBufferObject();
 
         Log.d(TAG, "init framebuffer object (width = " + width + ", height = " + height + ")");
-        createFrameBufferTexture(width, height);
+        createFrameBufferTexture();
 
         frameBuffers = new int[1];
         GLES20.glGenFramebuffers(1, frameBuffers, 0);
+
+        Log.d(TAG, "texture = " + getTexture());
+        Log.d(TAG, "framebuffer = " + getFrameBufferObject());
+
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, getFrameBufferObject());
         GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, getTexture(), 0);
         Log.d(TAG, "framebuffer object initialization error status: " + GLES20.glGetError());
@@ -220,7 +224,7 @@ public class PixelBuffer {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
     }
 
-    private void createFrameBufferTexture(int width, int height) {
+    private void createFrameBufferTexture() {
         destroyFrameBufferTexture();
 
         textures = new int[1];
