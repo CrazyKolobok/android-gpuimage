@@ -124,10 +124,11 @@ public class OffscreenPixelBuffer {
 	}
 
 	private Bitmap convertToBitmap() {
+		Bitmap emptyBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
 		Bitmap result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
 		GPUImageNativeLibrary.adjustBitmap(result);
 
-		return result;
+		return result.sameAs(emptyBitmap) ? null : result;
 	}
 
 	private void createFrameBufferObject() {
@@ -151,8 +152,6 @@ public class OffscreenPixelBuffer {
 			Log.e(TAG, "framebuffer object initialization failed, status: " + status);
 			destroyFrameBufferObject();
 		}
-
-		GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
 	}
 
 	private void createFrameBufferTexture() {
