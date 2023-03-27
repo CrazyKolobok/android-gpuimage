@@ -119,7 +119,7 @@ public class GPUImageRenderer implements GLSurfaceView.Renderer, GLTextureView.R
 
     @Override
     public void onDrawFrame(final GL10 gl) {
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, glFrameBuffer);
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
         runAll(runOnDraw);
         filter.onDraw(glFrameBuffer, glTextureId, glCubeBuffer, glTextureBuffer);
@@ -127,7 +127,6 @@ public class GPUImageRenderer implements GLSurfaceView.Renderer, GLTextureView.R
         if (surfaceTexture != null) {
             surfaceTexture.updateTexImage();
         }
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
     }
 
     @Override
@@ -149,7 +148,6 @@ public class GPUImageRenderer implements GLSurfaceView.Renderer, GLTextureView.R
 
     @Override
     public void onDrawFrame() {
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, glFrameBuffer);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
         runAll(runOnDraw);
         filter.onDraw(glFrameBuffer, glTextureId, glCubeBuffer, glTextureBuffer);
@@ -157,7 +155,6 @@ public class GPUImageRenderer implements GLSurfaceView.Renderer, GLTextureView.R
         if (surfaceTexture != null) {
             surfaceTexture.updateTexImage();
         }
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
     }
 
     @Override
