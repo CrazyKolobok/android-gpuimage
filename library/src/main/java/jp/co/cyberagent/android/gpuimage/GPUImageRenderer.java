@@ -23,6 +23,7 @@ import android.hardware.Camera;
 import android.hardware.Camera.PreviewCallback;
 import android.hardware.Camera.Size;
 import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -42,7 +43,7 @@ import jp.co.cyberagent.android.gpuimage.util.TextureRotationUtil;
 
 import static jp.co.cyberagent.android.gpuimage.util.TextureRotationUtil.TEXTURE_NO_ROTATION;
 
-public class GPUImageRenderer implements GPURenderer, GLTextureView.Renderer, PreviewCallback {
+public class GPUImageRenderer implements GLSurfaceView.Renderer, GLTextureView.Renderer, OffscreenRenderer, PreviewCallback {
     private static final int DEFAULT_FRAMEBUFFER_ID = 0;
     private static final int NO_IMAGE = -1;
     public static final float[] CUBE = {
@@ -118,6 +119,36 @@ public class GPUImageRenderer implements GPURenderer, GLTextureView.Renderer, Pr
 
     @Override
     public void onDrawFrame(final GL10 gl) {
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, glFrameBuffer);
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+        runAll(runOnDraw);
+        filter.onDraw(glFrameBuffer, glTextureId, glCubeBuffer, glTextureBuffer);
+        runAll(runOnDrawEnd);
+        if (surfaceTexture != null) {
+            surfaceTexture.updateTexImage();
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+    }
+
+    @Override
+    public void onSurfaceCreated() {
+        GLES20.glClearColor(backgroundRed, backgroundGreen, backgroundBlue, 1);
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+        filter.ifNeedInit();
+    }
+
+    @Override
+    public void onSurfaceChanged(int width, int height) {
+        outputWidth = width;
+        outputHeight = height;
+        GLES20.glViewport(0, 0, width, height);
+        GLES20.glUseProgram(filter.getProgram());
+        filter.onOutputSizeChanged(width, height);
+        adjustImageScaling();
+    }
+
+    @Override
+    public void onDrawFrame() {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, glFrameBuffer);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
         runAll(runOnDraw);

@@ -9,7 +9,7 @@
 package jp.co.cyberagent.android.gpuimage;
 
 import android.graphics.Bitmap;
-import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
 import android.util.Log;
 
 import javax.microedition.khronos.egl.EGL10;
@@ -35,7 +35,7 @@ public class PixelBuffer {
     private final static String TAG = "PixelBuffer";
     private final static boolean LIST_CONFIGS = false;
 
-    private GPURenderer renderer;
+    private GLSurfaceView.Renderer renderer;
     private int width, height;
     private Bitmap bitmap;
 
@@ -46,9 +46,6 @@ public class PixelBuffer {
     private EGLContext eglContext;
     private EGLSurface eglSurface;
     private GL10 gl10;
-
-    private int[] frameBuffers;
-    private int[] textures;
 
     private String mThreadOwner;
 
@@ -84,13 +81,11 @@ public class PixelBuffer {
 
         gl10 = (GL10) eglContext.getGL();
 
-        createFrameBufferObject();
-
         // Record thread owner of OpenGL context
         mThreadOwner = Thread.currentThread().getName();
     }
 
-    public void setRenderer(final GPURenderer renderer) {
+    public void setRenderer(final GLSurfaceView.Renderer renderer) {
         this.renderer = renderer;
 
         // Does this thread own the OpenGL context?
@@ -98,8 +93,6 @@ public class PixelBuffer {
             Log.e(TAG, "setRenderer: This thread does not own the OpenGL context.");
             return;
         }
-
-        this.renderer.setFrameBuffer(getFrameBufferObject());
 
         // Call the renderer initialization routines
         this.renderer.onSurfaceCreated(gl10, eglConfig);
@@ -130,8 +123,6 @@ public class PixelBuffer {
     public void destroy() {
         renderer.onDrawFrame(gl10);
         renderer.onDrawFrame(gl10);
-
-        destroyFrameBufferObject();
 
         egl10.eglMakeCurrent(eglDisplay, EGL10.EGL_NO_SURFACE,
                 EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
@@ -197,71 +188,5 @@ public class PixelBuffer {
     private void convertToBitmap() {
         bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         GPUImageNativeLibrary.adjustBitmap(bitmap);
-    }
-
-    private void createFrameBufferObject() {
-        destroyFrameBufferObject();
-
-        Log.d(TAG, "init framebuffer object (width = " + width + ", height = " + height + ")");
-        createFrameBufferTexture();
-
-        frameBuffers = new int[1];
-        GLES20.glGenFramebuffers(1, frameBuffers, 0);
-
-        Log.d(TAG, "texture = " + getTexture());
-        Log.d(TAG, "framebuffer = " + getFrameBufferObject());
-
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, getFrameBufferObject());
-        GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, getTexture(), 0);
-        Log.d(TAG, "framebuffer object initialization error status: " + GLES20.glGetError());
-
-        int status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER);
-        if (status != GLES20.GL_FRAMEBUFFER_COMPLETE) {
-            Log.e(TAG, "framebuffer object initialization failed, status: " + status);
-            destroyFrameBufferObject();
-        }
-
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
-    }
-
-    private void createFrameBufferTexture() {
-        destroyFrameBufferTexture();
-
-        textures = new int[1];
-        GLES20.glGenTextures(1, textures, 0);
-        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, width, height, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
-        Log.d(TAG, "framebuffer texture initialization error status: " + GLES20.glGetError());
-    }
-
-    private void destroyFrameBufferObject() {
-        destroyFrameBufferTexture();
-
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
-
-        if (frameBuffers != null) {
-            Log.d(TAG, "delete framebuffer object");
-            GLES20.glDeleteFramebuffers(1, frameBuffers, 0);
-            frameBuffers = null;
-        }
-    }
-
-    private void destroyFrameBufferTexture() {
-        if (textures != null) {
-            Log.d(TAG, "delete framebuffer texture");
-            GLES20.glDeleteTextures(1, textures, 0);
-            textures = null;
-        }
-    }
-
-    private int getFrameBufferObject() {
-        return frameBuffers == null ? 0 : frameBuffers[0];
-    }
-
-    private int getTexture() {
-        return textures == null ? 0 : textures[0];
     }
 }
