@@ -10,8 +10,9 @@ import android.opengl.GLES20;
 import android.util.Log;
 
 public class OffscreenPixelBuffer {
-	private final static boolean LIST_CONFIGS = false;
-	private final static String TAG = "OffscreenPixelBuffer";
+	private static final boolean LIST_CONFIGS = true;
+	private static final boolean LIST_OPEN_GL_CONTEXT_VALUES = true;
+	private static final String TAG = "OffscreenPixelBuffer";
 
 	private OffscreenRenderer renderer;
 	private final int width;
@@ -27,6 +28,7 @@ public class OffscreenPixelBuffer {
 	private String mThreadOwner;
 
 	public OffscreenPixelBuffer(final int width, final int height) {
+		Log.d(TAG, "Create pixel buffer for offscreen rendering. width = " + width + ", height = " + height);
 		this.width = width;
 		this.height = height;
 
@@ -59,6 +61,8 @@ public class OffscreenPixelBuffer {
 						mThreadOwner = Thread.currentThread().getName();
 
 						createFrameBufferObject();
+
+						if (LIST_OPEN_GL_CONTEXT_VALUES) listOpenGLContextValues();
 					}
 				}
 			}
@@ -210,10 +214,7 @@ public class OffscreenPixelBuffer {
 				EGLConfig[] configs = new EGLConfig[count];
 				if (EGL14.eglChooseConfig(eglDisplay, configAttributes, 0, configs, 0, count,
 						configsCounts, 0)) {
-					if (LIST_CONFIGS) {
-						listConfigs(configs);
-					}
-
+					if (LIST_CONFIGS) listConfigs(configs);
 					return configs[0];
 				}
 			}
@@ -227,6 +228,18 @@ public class OffscreenPixelBuffer {
 		return EGL14.eglGetConfigAttrib(eglDisplay, config, attribute, values, 0) ? values[0] : 0;
 	}
 
+	private int getGLES20Attribute(final int attribute) {
+		int[] values = new int[1];
+		GLES20.glGetIntegerv(attribute, values, 0);
+		return values[0];
+	}
+
+	private int[] getGLES20MaxViewportsDimensions() {
+		int[] values = new int[2];
+		GLES20.glGetIntegerv(GLES20.GL_MAX_VIEWPORT_DIMS, values, 0);
+		return values;
+	}
+
 	private int getFrameBufferObject() {
 		return frameBuffers == null ? 0 : frameBuffers[0];
 	}
@@ -238,23 +251,45 @@ public class OffscreenPixelBuffer {
 	private void listConfigs(EGLConfig[] configs) {
 		if (configs == null) return;
 
-		Log.i(TAG, "Config List {");
+		StringBuilder builder = new StringBuilder();
+		builder.append("Config List {");
 
 		for (EGLConfig config : configs) {
-			int d, s, r, g, b, a;
-
-			// Expand on this logic to dump other attributes
-			d = getEGLConfigAttribute(config, EGL14.EGL_DEPTH_SIZE);
-			s = getEGLConfigAttribute(config, EGL14.EGL_STENCIL_SIZE);
-			r = getEGLConfigAttribute(config, EGL14.EGL_RED_SIZE);
-			g = getEGLConfigAttribute(config, EGL14.EGL_GREEN_SIZE);
-			b = getEGLConfigAttribute(config, EGL14.EGL_BLUE_SIZE);
-			a = getEGLConfigAttribute(config, EGL14.EGL_ALPHA_SIZE);
-			Log.i(TAG, "    <d,s,r,g,b,a> = <" + d + "," + s + "," +
-					r + "," + g + "," + b + "," + a + ">");
+			builder.append("    <d,s,r,g,b,a> = <")
+					.append(getEGLConfigAttribute(config, EGL14.EGL_DEPTH_SIZE))
+					.append(", ")
+					.append(getEGLConfigAttribute(config, EGL14.EGL_STENCIL_SIZE))
+					.append(", ")
+					.append(getEGLConfigAttribute(config, EGL14.EGL_RED_SIZE))
+					.append(", ")
+					.append(getEGLConfigAttribute(config, EGL14.EGL_GREEN_SIZE))
+					.append(", ")
+					.append(getEGLConfigAttribute(config, EGL14.EGL_BLUE_SIZE))
+					.append(", ")
+					.append(getEGLConfigAttribute(config, EGL14.EGL_ALPHA_SIZE))
+					.append(">");
 		}
 
-		Log.i(TAG, "}");
+		builder.append("}");
+
+		Log.d(TAG, builder.toString());
+	}
+
+	private void listOpenGLContextValues() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("OpenGL context values: ")
+				.append("maxTextureSize = ").append(getGLES20Attribute(GLES20.GL_MAX_TEXTURE_SIZE))
+				.append(", maxRenderBufferSize = ").append(getGLES20Attribute(GLES20.GL_MAX_RENDERBUFFER_SIZE))
+				.append(", maxTextureImageUnits = ").append(getGLES20Attribute(GLES20.GL_MAX_TEXTURE_IMAGE_UNITS));
+
+		int[] maxDimensions = getGLES20MaxViewportsDimensions();
+		builder.append(", maxViewportDimensions = (")
+				.append(maxDimensions.length > 0 ? maxDimensions[0] : 0)
+				.append(", ")
+				.append(maxDimensions.length > 1 ? maxDimensions[1] : 0)
+				.append(")");
+
+		Log.d(TAG, builder.toString());
 	}
 }
 
