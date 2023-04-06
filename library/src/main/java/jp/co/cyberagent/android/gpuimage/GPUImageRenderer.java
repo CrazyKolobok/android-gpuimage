@@ -43,9 +43,10 @@ import jp.co.cyberagent.android.gpuimage.util.TextureRotationUtil;
 
 import static jp.co.cyberagent.android.gpuimage.util.TextureRotationUtil.TEXTURE_NO_ROTATION;
 
-public class GPUImageRenderer implements GLSurfaceView.Renderer, GLTextureView.Renderer, PreviewCallback {
+public class GPUImageRenderer implements GLSurfaceView.Renderer, GLTextureView.Renderer, OffscreenRenderer, PreviewCallback {
+    private static final int DEFAULT_FRAMEBUFFER_ID = 0;
     private static final int NO_IMAGE = -1;
-    public static final float CUBE[] = {
+    public static final float[] CUBE = {
             -1.0f, -1.0f,
             1.0f, -1.0f,
             -1.0f, 1.0f,
@@ -57,6 +58,7 @@ public class GPUImageRenderer implements GLSurfaceView.Renderer, GLTextureView.R
     public final Object surfaceChangedWaiter = new Object();
 
     private int glTextureId = NO_IMAGE;
+    private int glFrameBuffer = DEFAULT_FRAMEBUFFER_ID;
     private SurfaceTexture surfaceTexture = null;
     private final FloatBuffer glCubeBuffer;
     private final FloatBuffer glTextureBuffer;
@@ -117,13 +119,47 @@ public class GPUImageRenderer implements GLSurfaceView.Renderer, GLTextureView.R
 
     @Override
     public void onDrawFrame(final GL10 gl) {
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
         runAll(runOnDraw);
-        filter.onDraw(glTextureId, glCubeBuffer, glTextureBuffer);
+        filter.onDraw(glFrameBuffer, glTextureId, glCubeBuffer, glTextureBuffer);
         runAll(runOnDrawEnd);
         if (surfaceTexture != null) {
             surfaceTexture.updateTexImage();
         }
+    }
+
+    @Override
+    public void onSurfaceCreated() {
+        GLES20.glClearColor(backgroundRed, backgroundGreen, backgroundBlue, 1);
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+        filter.ifNeedInit();
+    }
+
+    @Override
+    public void onSurfaceChanged(int width, int height) {
+        outputWidth = width;
+        outputHeight = height;
+        GLES20.glViewport(0, 0, width, height);
+        GLES20.glUseProgram(filter.getProgram());
+        filter.onOutputSizeChanged(width, height);
+        adjustImageScaling();
+    }
+
+    @Override
+    public void onDrawFrame() {
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+        runAll(runOnDraw);
+        filter.onDraw(glFrameBuffer, glTextureId, glCubeBuffer, glTextureBuffer);
+        runAll(runOnDrawEnd);
+        if (surfaceTexture != null) {
+            surfaceTexture.updateTexImage();
+        }
+    }
+
+    @Override
+    public void setFrameBuffer(int frameBuffer) {
+        glFrameBuffer = frameBuffer;
     }
 
     /**

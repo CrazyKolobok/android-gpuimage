@@ -35,7 +35,7 @@ public class PixelBuffer {
     private final static String TAG = "PixelBuffer";
     private final static boolean LIST_CONFIGS = false;
 
-    private GLSurfaceView.Renderer renderer; // borrow this interface
+    private GLSurfaceView.Renderer renderer;
     private int width, height;
     private Bitmap bitmap;
 
@@ -123,6 +123,7 @@ public class PixelBuffer {
     public void destroy() {
         renderer.onDrawFrame(gl10);
         renderer.onDrawFrame(gl10);
+
         egl10.eglMakeCurrent(eglDisplay, EGL10.EGL_NO_SURFACE,
                 EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
 

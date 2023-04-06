@@ -182,7 +182,7 @@ public class GPUImageFilterGroup extends GPUImageFilter {
      */
     @SuppressLint("WrongCall")
     @Override
-    public void onDraw(final int textureId, final FloatBuffer cubeBuffer,
+    public void onDraw(final int frameBuffer, final int textureId, final FloatBuffer cubeBuffer,
                        final FloatBuffer textureBuffer) {
         runPendingOnDrawTasks();
         if (!isInitialized() || frameBuffers == null || frameBufferTextures == null) {
@@ -200,15 +200,15 @@ public class GPUImageFilterGroup extends GPUImageFilter {
                 }
 
                 if (i == 0) {
-                    filter.onDraw(previousTexture, cubeBuffer, textureBuffer);
+                    filter.onDraw(frameBuffer, previousTexture, cubeBuffer, textureBuffer);
                 } else if (i == size - 1) {
-                    filter.onDraw(previousTexture, glCubeBuffer, (size % 2 == 0) ? glTextureFlipBuffer : glTextureBuffer);
+                    filter.onDraw(frameBuffer, previousTexture, glCubeBuffer, (size % 2 == 0) ? glTextureFlipBuffer : glTextureBuffer);
                 } else {
-                    filter.onDraw(previousTexture, glCubeBuffer, glTextureBuffer);
+                    filter.onDraw(frameBuffer, previousTexture, glCubeBuffer, glTextureBuffer);
                 }
 
                 if (isNotLast) {
-                    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+                    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, frameBuffer);
                     previousTexture = frameBufferTextures[i];
                 }
             }
