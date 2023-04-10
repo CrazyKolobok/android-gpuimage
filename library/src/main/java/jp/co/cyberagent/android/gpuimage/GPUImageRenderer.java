@@ -267,32 +267,12 @@ public class GPUImageRenderer implements GLSurfaceView.Renderer, GLTextureView.R
             return;
         }
 
-        runOnDraw(new Runnable() {
+        runOnDraw(() -> {
+            glTextureId = OpenGlUtils.loadTexture(bitmap, glTextureId, recycle);
 
-            @Override
-            public void run() {
-                Bitmap resizedBitmap = null;
-                if (bitmap.getWidth() % 2 == 1) {
-                    resizedBitmap = Bitmap.createBitmap(bitmap.getWidth() + 1, bitmap.getHeight(),
-                            Bitmap.Config.ARGB_8888);
-                    resizedBitmap.setDensity(bitmap.getDensity());
-                    Canvas can = new Canvas(resizedBitmap);
-                    can.drawARGB(0x00, 0x00, 0x00, 0x00);
-                    can.drawBitmap(bitmap, 0, 0, null);
-                    addedPadding = 1;
-                } else {
-                    addedPadding = 0;
-                }
-
-                glTextureId = OpenGlUtils.loadTexture(
-                        resizedBitmap != null ? resizedBitmap : bitmap, glTextureId, recycle);
-                if (resizedBitmap != null) {
-                    resizedBitmap.recycle();
-                }
-                imageWidth = bitmap.getWidth();
-                imageHeight = bitmap.getHeight();
-                adjustImageScaling();
-            }
+            imageWidth = bitmap.getWidth();
+            imageHeight = bitmap.getHeight();
+            adjustImageScaling();
         });
     }
 
