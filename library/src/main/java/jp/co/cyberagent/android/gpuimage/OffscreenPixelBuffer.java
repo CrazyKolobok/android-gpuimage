@@ -328,4 +328,3 @@ public class OffscreenPixelBuffer {
 		Log.d(TAG, builder.toString());
 	}
 }
-
