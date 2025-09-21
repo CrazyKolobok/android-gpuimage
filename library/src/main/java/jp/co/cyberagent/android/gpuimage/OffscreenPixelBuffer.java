@@ -17,6 +17,7 @@ public class OffscreenPixelBuffer {
 	private OffscreenRenderer renderer;
 	private final int width;
 	private final int height;
+	private volatile boolean initialized = false;
 
 	private EGLDisplay eglDisplay;
 	private EGLSurface eglSurface;
@@ -31,64 +32,19 @@ public class OffscreenPixelBuffer {
 		Log.d(TAG, "Create pixel buffer for offscreen rendering. width = " + width + ", height = " + height);
 		this.width = width;
 		this.height = height;
+	}
 
-		eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
-		if (eglDisplay != null) {
-			int[] versions = new int[2];
-			if (EGL14.eglInitialize(eglDisplay, versions, 0, versions, 1)) {
-				EGLConfig config = getEGLConfig();
-				if (config != null) {
-					int[] contextAttributes = new int[] {
-							EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,
-							EGL14.EGL_NONE
-					};
-
-					eglContext = EGL14.eglCreateContext(eglDisplay, config, EGL14.EGL_NO_CONTEXT,
-							contextAttributes, 0);
-
-					int[] surfaceAttributes = new int[] {
-							EGL14.EGL_WIDTH, width,
-							EGL14.EGL_HEIGHT, height,
-							EGL14.EGL_NONE
-					};
-
-					eglSurface = EGL14.eglCreatePbufferSurface(eglDisplay, config, surfaceAttributes, 0);
-
-					if (eglContext != null && eglSurface != null) {
-						EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
-
-						// Record thread owner of OpenGL context
-						mThreadOwner = Thread.currentThread().getName();
-
-						createFrameBufferObject();
-
-						if (LIST_OPEN_GL_CONTEXT_VALUES) listOpenGLContextValues();
-					}
-				}
-			}
+	public synchronized boolean initialize() {
+		if (!initialized) {
+			initialized = initializeEGL() && createFrameBufferObject();
 		}
+
+		return initialized;
 	}
 
 	public void destroy() {
 		destroyFrameBufferObject();
-
-		if (eglDisplay != null) {
-			if (eglSurface != null) {
-				EGL14.eglDestroySurface(eglDisplay, eglSurface);
-				eglSurface = null;
-			}
-
-			if (eglContext != null) {
-				EGL14.eglDestroyContext(eglDisplay, eglContext);
-				eglContext = null;
-			}
-
-			EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
-			EGL14.eglTerminate(eglDisplay);
-			eglDisplay = null;
-		}
-
-		mThreadOwner = null;
+		destroyEGL();
 	}
 
 	public Bitmap getBitmap() {
@@ -135,30 +91,36 @@ public class OffscreenPixelBuffer {
 		return result.sameAs(emptyBitmap) ? null : result;
 	}
 
-	private void createFrameBufferObject() {
+	private boolean createFrameBufferObject() {
 		destroyFrameBufferObject();
 
-		Log.d(TAG, "init framebuffer object (width = " + width + ", height = " + height + ")");
-		createFrameBufferTexture();
+		if (createFrameBufferTexture()) {
+			Log.d(TAG, "init framebuffer object (width = " + width + ", height = " + height + ")");
 
-		frameBuffers = new int[1];
-		GLES20.glGenFramebuffers(1, frameBuffers, 0);
+			frameBuffers = new int[1];
+			GLES20.glGenFramebuffers(1, frameBuffers, 0);
 
-		Log.d(TAG, "texture = " + getTexture());
-		Log.d(TAG, "framebuffer = " + getFrameBufferObject());
+			Log.d(TAG, "texture = " + getTexture());
+			Log.d(TAG, "framebuffer = " + getFrameBufferObject());
 
-		GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, getFrameBufferObject());
-		GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, getTexture(), 0);
-		Log.d(TAG, "framebuffer object initialization error status: " + GLES20.glGetError());
+			GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, getFrameBufferObject());
+			GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, getTexture(), 0);
+			Log.d(TAG, "framebuffer object initialization error status: " + GLES20.glGetError());
 
-		int status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER);
-		if (status != GLES20.GL_FRAMEBUFFER_COMPLETE) {
-			Log.e(TAG, "framebuffer object initialization failed, status: " + status);
-			destroyFrameBufferObject();
+			int status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER);
+			if (status != GLES20.GL_FRAMEBUFFER_COMPLETE) {
+				Log.e(TAG, "framebuffer object initialization failed, status: " + status);
+				destroyFrameBufferObject();
+				return false;
+			}
+
+			return true;
 		}
+
+		return false;
 	}
 
-	private void createFrameBufferTexture() {
+	private boolean createFrameBufferTexture() {
 		destroyFrameBufferTexture();
 
 		textures = new int[1];
@@ -169,8 +131,37 @@ public class OffscreenPixelBuffer {
 		GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
 		GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
 		GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
-		Log.d(TAG, "framebuffer texture initialization error status: " + GLES20.glGetError());
+
+		int errorStatus = GLES20.glGetError();
+		Log.d(TAG, "framebuffer texture initialization error status: " + errorStatus);
 		GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+
+		if (errorStatus != GLES20.GL_NO_ERROR) {
+			destroyFrameBufferTexture();
+			return false;
+		}
+
+		return true;
+	}
+
+	private void destroyEGL() {
+		if (eglDisplay != null) {
+			if (eglSurface != null) {
+				EGL14.eglDestroySurface(eglDisplay, eglSurface);
+				eglSurface = null;
+			}
+
+			if (eglContext != null) {
+				EGL14.eglDestroyContext(eglDisplay, eglContext);
+				eglContext = null;
+			}
+
+			EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
+			EGL14.eglTerminate(eglDisplay);
+			eglDisplay = null;
+		}
+
+		mThreadOwner = null;
 	}
 
 	private void destroyFrameBufferObject() {
@@ -248,6 +239,51 @@ public class OffscreenPixelBuffer {
 		return textures == null ? 0 : textures[0];
 	}
 
+	private boolean initializeEGL() {
+		destroyEGL();
+
+		Log.d(TAG, "Initialize OpenGL context");
+		eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+		if (eglDisplay != null) {
+			int[] versions = new int[2];
+			if (EGL14.eglInitialize(eglDisplay, versions, 0, versions, 1)) {
+				EGLConfig config = getEGLConfig();
+				if (config != null) {
+					int[] contextAttributes = new int[] {
+							EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,
+							EGL14.EGL_NONE
+					};
+
+					eglContext = EGL14.eglCreateContext(eglDisplay, config, EGL14.EGL_NO_CONTEXT,
+							contextAttributes, 0);
+
+					int[] surfaceAttributes = new int[] {
+							EGL14.EGL_WIDTH, width,
+							EGL14.EGL_HEIGHT, height,
+							EGL14.EGL_NONE
+					};
+
+					eglSurface = EGL14.eglCreatePbufferSurface(eglDisplay, config, surfaceAttributes, 0);
+
+					if (eglContext != null && eglSurface != null) {
+						EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
+
+						// Record thread owner of OpenGL context
+						mThreadOwner = Thread.currentThread().getName();
+
+						if (LIST_OPEN_GL_CONTEXT_VALUES) listOpenGLContextValues();
+
+						Log.d(TAG, "OpenGL context initialized");
+						return true;
+					}
+				}
+			}
+		}
+
+		Log.e(TAG, "OpenGL context not initialized");
+		return false;
+	}
+
 	private void listConfigs(EGLConfig[] configs) {
 		if (configs == null) return;
 
@@ -292,4 +328,3 @@ public class OffscreenPixelBuffer {
 		Log.d(TAG, builder.toString());
 	}
 }
-
